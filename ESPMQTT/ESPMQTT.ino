@@ -2,16 +2,6 @@
 #include <PubSubClient.h>
 #include "config.h" // Include the configuration header
 
-// // WiFi credentials
-// const char* ssid = "MYHDSB";
-// const char* password = ""; // Add your WiFi password
-
-// // MQTT Broker settings
-// const char* mqtt_server = "driver.cloudmqtt.com";
-// const int mqtt_port = 18699;
-// const char* mqtt_user = "kcvmlroq";
-// const char* mqtt_password = "HwMWk5id-HDU";
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 
