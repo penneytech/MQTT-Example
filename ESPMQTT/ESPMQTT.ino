@@ -110,6 +110,7 @@ void reconnect() {
 void setup() {
   Serial.begin(115200);
   setup_wifi();
+  randomSeed(micros());  // Seed the random number generator with current micros
 
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(mqtt_callback);
