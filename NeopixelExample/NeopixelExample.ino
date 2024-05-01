@@ -3,6 +3,9 @@
 #include "config.h" // Include the configuration header
 #include <Adafruit_NeoPixel.h>
 
+const char* clientId = "esp8266-"; // Prefix for client ID
+const char* topic = "esp8266/light";
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -13,22 +16,39 @@ const int ledPin = LED_BUILTIN; // LED pin (builtin LED on ESP8266)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMPIXELS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup_wifi() {
-  // Existing setup_wifi code...
-}
+  Serial.print("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi.");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  }
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   String message;
+
   for (unsigned int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
 
+  Serial.println(message);
+
   if (message == "1") {
     digitalWrite(ledPin, LOW); // Turn LED ON
-    strip.fill(strip.Color(255, 255, 255)); // Turn all strip LEDs ON (white color)
+    strip.fill(strip.Color(255, 255, 255)); // Set all strip LEDs to green color
     strip.show();
   } else if (message == "0") {
     digitalWrite(ledPin, HIGH); // Turn LED OFF
-    strip.fill(strip.Color(0, 0, 0)); // Turn all strip LEDs OFF
+    strip.fill(strip.Color(0, 0, 0)); // Set all strip LEDs off
+    strip.show();
+  } else if (message == "green") {
+    strip.fill(strip.Color(0, 255, 0)); // Set all strip LEDs to green color
+    strip.show();
+  } else if (message == "red") {
+    strip.fill(strip.Color(255, 0, 0)); // Set all strip LEDs to green color
     strip.show();
   } else if (message == "blink") {
     // Perform the blinking and red center LEDs sequence
@@ -40,17 +60,41 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     delay(1000);
     strip.fill(strip.Color(0, 0, 0)); // Turn all LEDs off
     strip.show();
+  } else if (message.startsWith("#") && message.length() == 7) {
+    // Check if the message is a hex color value starting with a hashtag
+
+    // Extract the RGB values from the hex color value
+    int r = strtol(message.substring(1, 3).c_str(), NULL, 16);
+    int g = strtol(message.substring(3, 5).c_str(), NULL, 16);
+    int b = strtol(message.substring(5, 7).c_str(), NULL, 16);
+
+    // Set all strip LEDs to the extracted color
+    strip.fill(strip.Color(r, g, b)); 
+    strip.show();
   }
 }
 
 void reconnect() {
-  // Existing reconnect code...
-}
+  while (!client.connected()) {
+    String clientIdWithGUID = clientId;
+    clientIdWithGUID += generateGUID();  // Append random GUID to client ID
+    Serial.print("Connecting to MQTT Server...");
+    if (client.connect(clientIdWithGUID.c_str(), mqttUser, mqttPassword)) {
+      Serial.println("\nConnected to MQTT Server.");
+      client.subscribe(topic);
+    } else {
+      Serial.print("Failed, rc=");
+      Serial.print(client.state());
+      Serial.println("Retrying in 5 seconds...");
+      delay(5000);
+    }
+  }
+  }
 
 void setup() {
   Serial.begin(115200);
   setup_wifi();
-  client.setServer(mqtt_server, mqtt_port);
+  client.setServer(mqttServer, mqttPort);
   client.setCallback(mqtt_callback);
 
   strip.begin(); // Initialize the NeoPixel strip
@@ -75,4 +119,19 @@ void blinkLED(int index, uint32_t color, int wait) {
     strip.show();
     delay(wait / 2);
   }
+}
+
+String generateGUID() {
+  char guid[37];
+  for (int i = 0; i < 36; i++) {
+    if (i == 8 || i == 13 || i == 18 || i == 23) {
+      guid[i] = '-';
+    } else if (i == 14) {
+      guid[i] = '4'; // Version 4 UUID
+    } else {
+      guid[i] = "0123456789abcdef"[random(15)];
+    }
+  }
+  guid[36] = '\0';
+  return String(guid);
 }
